@@ -1,4 +1,4 @@
-﻿const DFY_STORAGE_KEY = "dfy-daily-sales-v2";
+const DFY_STORAGE_KEY = "dfy-daily-sales-v2";
 const DFY_INVENTORY_STORAGE_KEY = "inventory-dashboard-v2";
 const DFY_INVENTORY_SYNC_SOURCE = "dfy-product-ledger";
 const DFY_DEFAULT_TARGET = 1042989;
@@ -2484,7 +2484,11 @@ function queueRemoteSave(dateKeys) {
 async function hydrateFromSupabase() {
   if (!supabaseClient) return;
   const { data, error } = await supabaseClient.from(DFY_REMOTE_TABLE).select("*").order("sales_date", { ascending: true });
-  if (error) return;
+  if (error) {
+    console.error("Supabase hydrate failed", error);
+    saveIndicator.textContent = `Supabase 불러오기 실패 · ${error.message || "오류"}`;
+    return;
+  }
   data.forEach((record) => {
     state.rows[record.sales_date] = normalizeRow({
       musinsa: { orders: record.musinsa_orders, sales: record.musinsa_sales },
@@ -2515,5 +2519,11 @@ async function upsertRowsToSupabase(dateKeys) {
       daily_target: row.dailyTarget
     };
   });
-  await supabaseClient.from(DFY_REMOTE_TABLE).upsert(payload, { onConflict: "sales_date" });
+  const { error } = await supabaseClient.from(DFY_REMOTE_TABLE).upsert(payload, { onConflict: "sales_date" });
+  if (error) {
+    console.error("Supabase upsert failed", error, payload);
+    saveIndicator.textContent = `Supabase 저장 실패 · ${error.message || "오류"}`;
+    return;
+  }
+  saveIndicator.textContent = `Supabase 저장 완료 · ${formatTime(new Date())}`;
 }
