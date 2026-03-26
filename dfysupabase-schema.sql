@@ -8,6 +8,7 @@ create table if not exists public.dfy_daily_sales (
   kream_sales bigint not null default 0 check (kream_sales >= 0),
   official_orders integer not null default 0 check (official_orders >= 0),
   official_sales bigint not null default 0 check (official_sales >= 0),
+  expected_cost bigint not null default 0 check (expected_cost >= 0),
   daily_target bigint not null default 1042989 check (daily_target >= 0),
   note text,
   created_at timestamptz not null default now(),
