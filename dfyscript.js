@@ -2490,6 +2490,10 @@ async function hydrateFromSupabase() {
     return;
   }
   data.forEach((record) => {
+    const monthKey = String(record.sales_date || "").slice(0, 7);
+    if (monthKey) {
+      getMonthMeta(monthKey).expectedCost = Math.max(0, Number(record.expected_cost) || 0);
+    }
     state.rows[record.sales_date] = normalizeRow({
       musinsa: { orders: record.musinsa_orders, sales: record.musinsa_sales },
       ably: { orders: record.ably_orders, sales: record.ably_sales },
@@ -2506,6 +2510,7 @@ async function upsertRowsToSupabase(dateKeys) {
   if (!supabaseClient || !dateKeys.length) return;
   const payload = dateKeys.map((dateKey) => {
     const row = state.rows[dateKey];
+    const monthKey = String(dateKey).slice(0, 7);
     return {
       sales_date: dateKey,
       musinsa_orders: row.musinsa.orders,
@@ -2516,6 +2521,7 @@ async function upsertRowsToSupabase(dateKeys) {
       kream_sales: row.kream.sales,
       official_orders: row.official.orders,
       official_sales: row.official.sales,
+      expected_cost: getMonthMeta(monthKey).expectedCost,
       daily_target: row.dailyTarget
     };
   });
