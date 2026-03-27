@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>디파이클럽로버스 | 일별 매출정리</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="dfystyles.css">
+</head>
+<body>
+  <main class="dfy-shell">
+    <div class="page-nav">
+      <button id="prevDfyPageButton" class="nav-arrow" type="button" aria-label="이전 페이지">&#8592;</button>
+      <div class="page-indicator">
+        <span id="pageIndicatorText">01 PAGE · 일별 매출정리</span>
+      </div>
+      <button id="nextDfyPageButton" class="nav-arrow" type="button" aria-label="다음 페이지">&#8594;</button>
+    </div>
+
+    <section class="dfy-hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Defy Club Lovers</p>
+        <h1>디파이클럽로버스</h1>
+        <div class="hero-meta">
+          <span id="heroPageChip" class="page-chip">01 PAGE</span>
+          <span id="heroPageName" class="page-name">일별 매출정리</span>
+        </div>
+        <p id="heroDescription" class="hero-description">
+          월별 기준으로 무신사, 에이블리, 크림, 공식홈페이지 매출을 한 화면에서 정리합니다.
+          표 입력값은 자동 저장되며, 연도와 월을 바꿔도 기존 데이터는 유지됩니다.
+        </p>
+      </div>
+
+      <aside class="hero-side">
+        <div class="control-block">
+          <div class="block-header">
+            <span class="block-label">기준 연월</span>
+          </div>
+
+          <div class="month-picker">
+            <button
+              id="monthPickerButton"
+              class="month-picker-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="monthPickerPanel"
+            >
+              <span id="monthPickerLabel">2026년 03월</span>
+              <span class="month-picker-caret">&#9660;</span>
+            </button>
+
+            <div id="monthPickerPanel" class="month-picker-panel" hidden>
+              <div class="picker-year-row">
+                <button id="pickerPrevYearButton" class="picker-arrow" type="button" aria-label="이전 연도">&#8593;</button>
+                <strong id="pickerYearLabel" class="picker-year-label">2026년</strong>
+                <button id="pickerNextYearButton" class="picker-arrow" type="button" aria-label="다음 연도">&#8595;</button>
+              </div>
+              <div id="monthGrid" class="month-grid" role="listbox" aria-label="월 선택"></div>
+            </div>
+          </div>
+        </div>
+
+        <p id="saveIndicator" class="save-indicator">자동 저장 상태를 확인하는 중입니다.</p>
+      </aside>
+    </section>
+
+    <section id="summaryPage" class="dfy-page is-active" data-page="summary">
+      <section id="summaryCards" class="summary-grid profit-grid" aria-label="월 손익 요약">
+        <article class="summary-card summary-panel">
+          <p class="summary-label">Revenue Target</p>
+          <h2 class="summary-panel-title">매출 목표 요약</h2>
+          <div class="summary-list">
+            <div class="summary-row">
+              <span class="summary-row-label">손익분기점 매출</span>
+              <strong id="breakEvenSalesValue" class="summary-row-value">0원</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">목표매출</span>
+              <strong id="targetSalesValue" class="summary-row-value">0원</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">현재매출</span>
+              <strong id="currentSalesValue" class="summary-row-value">0원</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">일일목표매출</span>
+              <strong id="dailyTargetValue" class="summary-row-value">0원</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">달성률</span>
+              <strong id="salesAchievementValue" class="summary-row-value">0%</strong>
+            </div>
+          </div>
+          <div class="summary-footer">
+            <span>목표 대비</span>
+            <strong id="salesGapValue">0원</strong>
+          </div>
+        </article>
+
+        <article class="summary-card summary-panel">
+          <p class="summary-label">Cost &amp; Orders</p>
+          <h2 class="summary-panel-title">비용 / 주문 요약</h2>
+          <div class="summary-list">
+            <div class="summary-row summary-row-input">
+              <label class="summary-row-label" for="expectedCostInput">예상비용</label>
+              <input id="expectedCostInput" class="summary-inline-input" type="text" inputmode="numeric" placeholder="0">
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">객단가</span>
+              <strong id="averageOrderValue" class="summary-row-value">0원</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">예상 정산객단가</span>
+              <strong id="settlementAovValue" class="summary-row-value">0원</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">필요 주문건수</span>
+              <strong id="requiredOrdersValue" class="summary-row-value">0건</strong>
+            </div>
+            <div class="summary-row">
+              <span class="summary-row-label">달성률</span>
+              <strong id="orderAchievementValue" class="summary-row-value">0%</strong>
+            </div>
+          </div>
+          <div class="summary-footer">
+            <span>주문 목표 대비</span>
+            <strong id="orderGapValue">0건</strong>
+          </div>
+        </article>
+      </section>
+
+      <section class="table-panel">
+        <div class="panel-top">
+          <div>
+            <p class="panel-kicker">Monthly Ledger</p>
+            <h2 id="monthHeadline">2026년 3월 일별 매출정리</h2>
+            <p id="monthSubcopy" class="panel-copy">
+              월별 기준값으로 집계되며, 하단 TOTAL 행에서 플랫폼별 주문건수와 매출 합계를 확인할 수 있습니다.
+            </p>
+          </div>
+
+          <div class="legend-row" aria-hidden="true">
+            <span class="legend-chip musinsa">무신사</span>
+            <span class="legend-chip ably">에이블리</span>
+            <span class="legend-chip kream">크림</span>
+            <span class="legend-chip official">공홈</span>
+            <span class="legend-chip total">합계</span>
+            <span class="legend-chip target">목표매출</span>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="sales-table">
+            <caption class="sr-only">디파이클럽로버스 일별 매출정리 표</caption>
+            <thead>
+              <tr class="group-row">
+                <th class="sticky-col sticky-date" rowspan="2">날짜</th>
+                <th class="sticky-col sticky-day group-end" rowspan="2">요일</th>
+                <th class="brand-header brand-musinsa brand-divider" colspan="2">무신사</th>
+                <th class="brand-header brand-ably brand-divider" colspan="2">에이블리</th>
+                <th class="brand-header brand-kream brand-divider" colspan="2">크림</th>
+                <th class="brand-header brand-official brand-divider" colspan="2">공식홈페이지</th>
+                <th class="brand-header brand-total brand-divider" colspan="2">합계</th>
+                <th class="brand-header brand-target" rowspan="2">일일 목표 매출 (+/-)</th>
+              </tr>
+              <tr class="sub-row">
+                <th>주문건</th>
+                <th class="group-end">매출</th>
+                <th>주문건</th>
+                <th class="group-end">매출</th>
+                <th>주문건</th>
+                <th class="group-end">매출</th>
+                <th>주문건</th>
+                <th class="group-end">매출</th>
+                <th>판매량</th>
+                <th class="group-end">매출</th>
+              </tr>
+            </thead>
+            <tbody id="salesTableBody"></tbody>
+            <tfoot id="salesTableFoot"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="insight-panel">
+        <div class="panel-top insight-top">
+          <div>
+            <p class="panel-kicker">Monthly Sales Chart</p>
+            <h2>월별 전체 매출현황</h2>
+            <p class="panel-copy">일자별 플랫폼 매출을 색상별 막대로 비교해 월 흐름을 한눈에 확인합니다.</p>
+          </div>
+
+          <div class="legend-row" aria-hidden="true">
+            <span class="legend-chip musinsa">무신사</span>
+            <span class="legend-chip ably">에이블리</span>
+            <span class="legend-chip kream">크림</span>
+            <span class="legend-chip official">공홈</span>
+          </div>
+        </div>
+
+        <div class="platform-chart-wrap">
+          <div id="platformSalesChart" class="platform-sales-chart" aria-label="월별 전체 매출현황 차트"></div>
+        </div>
+      </section>
+
+      <section class="insight-panel">
+        <div class="panel-top insight-top">
+          <div>
+            <p class="panel-kicker">Weekday Insight</p>
+            <h2>요일별 평균 매출 분석</h2>
+            <p class="panel-copy">매출이 입력된 요일만 집계해 평균 매출, 순위, 최고/최저 매출일을 같이 보여줍니다.</p>
+          </div>
+
+          <div class="insight-badges">
+            <div class="insight-badge best">
+              <span class="insight-badge-label">BEST</span>
+              <strong id="bestDayValue" class="insight-badge-value">-</strong>
+            </div>
+            <div class="insight-badge worst">
+              <span class="insight-badge-label">WORST</span>
+              <strong id="worstDayValue" class="insight-badge-value">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="insight-grid">
+          <article class="insight-card">
+            <div id="weekdayChart" class="weekday-chart" aria-label="요일별 평균 매출 차트"></div>
+          </article>
+
+          <article class="insight-card">
+            <p id="weekdayRankSummary" class="weekday-rank-summary">-</p>
+            <div class="weekday-table-wrap">
+              <table class="weekday-table">
+                <thead>
+                  <tr>
+                    <th>순위</th>
+                    <th>요일</th>
+                    <th>평균 매출</th>
+                  </tr>
+                </thead>
+                <tbody id="weekdaySummaryBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <section id="productPage" class="dfy-page" data-page="products">
+      <section class="table-panel product-page-panel">
+        <div class="panel-top product-panel-top">
+          <div>
+            <p class="panel-kicker">Product Ledger</p>
+            <h2 id="productPageHeadline">2026년 3월 상품별 일일 매출 현황</h2>
+            <p class="panel-copy">
+              카테고리별 상품 판매건수를 일자와 사이즈 기준으로 기록합니다. 입력값은 자동 저장되며 상품별 일일 판매 추이를 확인하는 전용 페이지입니다.
+            </p>
+          </div>
+
+          <div class="product-toolbar">
+            <div class="category-field">
+              <span>카테고리</span>
+              <div id="productCategoryButtons" class="category-button-row" role="tablist" aria-label="카테고리 선택"></div>
+            </div>
+            <div class="product-toolbar-note">
+              <strong id="productAverageDivisor">26</strong>
+              <span>평균판매량 분모</span>
+              <button id="productSaveButton" class="product-save-button" type="button">저장</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="product-ledger-wrap">
+          <table class="product-ledger-table">
+            <caption class="sr-only">상품별 일일 매출 현황 표</caption>
+            <thead id="productLedgerHead"></thead>
+            <tbody id="productLedgerBody"></tbody>
+            <tfoot id="productLedgerFoot"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="insight-panel product-category-panel">
+        <div class="panel-top insight-top">
+          <div>
+            <p class="panel-kicker">Category Sales</p>
+            <h2>카테고리별 판매량 현황</h2>
+            <p class="panel-copy">현재 월 기준으로 카테고리별 전체 판매량을 색상 막대로 비교합니다.</p>
+          </div>
+        </div>
+
+        <div id="productCategoryChart" class="product-category-chart" aria-label="카테고리별 판매량 차트"></div>
+      </section>
+    </section>
+
+    <section id="inventoryPage" class="dfy-page" data-page="inventory">
+      <section class="table-panel inventory-page-panel">
+        <div class="panel-top inventory-panel-top">
+          <div>
+            <p class="panel-kicker">Inventory Dashboard</p>
+            <h2 id="inventoryHeadline">입출고 내역</h2>
+            <p class="panel-copy">선택한 날짜 기준으로 시즌 상품의 입고와 출고를 입력하고 현재재고, 일자 집계, 입출고 내역을 함께 확인합니다.</p>
+          </div>
+
+          <label class="field inventory-date-field" for="inventoryDateInput">
+            <span>조회 일자</span>
+            <input id="inventoryDateInput" class="inventory-date-input" type="date">
+          </label>
+        </div>
+
+        <div class="inventory-stat-grid">
+          <article class="summary-card inventory-stat-card">
+            <p class="summary-label">Date</p>
+            <strong id="inventoryDateCard" class="inventory-stat-value">-</strong>
+          </article>
+          <article class="summary-card inventory-stat-card">
+            <p class="summary-label">입고</p>
+            <strong id="inventoryInboundCard" class="inventory-stat-value is-good">0</strong>
+          </article>
+          <article class="summary-card inventory-stat-card">
+            <p class="summary-label">출고</p>
+            <strong id="inventoryOutboundCard" class="inventory-stat-value is-bad">0</strong>
+          </article>
+        </div>
+
+        <div class="inventory-filter-block">
+          <div class="inventory-filter-group">
+            <span class="inventory-filter-label">카테고리</span>
+            <div id="inventoryCategoryButtons" class="category-button-row" role="tablist" aria-label="재고 카테고리 선택"></div>
+          </div>
+          <div class="inventory-filter-group">
+            <span class="inventory-filter-label">시즌</span>
+            <div class="inventory-season-toolbar">
+              <div id="inventorySeasonButtons" class="category-button-row" role="tablist" aria-label="재고 시즌 선택"></div>
+              <button id="inventoryStockEditButton" class="inventory-edit-button" type="button">재고수정</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="inventory-table-wrap">
+          <table class="inventory-input-table">
+            <thead>
+              <tr>
+                <th rowspan="2">품목명</th>
+                <th class="inventory-group-header stock" colspan="2">현재재고</th>
+                <th class="inventory-group-header inbound" colspan="2">입고</th>
+                <th class="inventory-group-header outbound" colspan="2">출고</th>
+              </tr>
+              <tr>
+                <th class="inventory-subheader stock">M</th>
+                <th class="inventory-subheader stock">L</th>
+                <th class="inventory-subheader inbound">M+</th>
+                <th class="inventory-subheader inbound">L+</th>
+                <th class="inventory-subheader outbound">M-</th>
+                <th class="inventory-subheader outbound">L-</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="inventory-bottom-grid">
+        <article class="insight-panel inventory-bottom-panel">
+          <div class="panel-top inventory-bottom-top">
+            <div>
+              <p class="panel-kicker">Daily Board</p>
+              <h2>일자별 집계</h2>
+            </div>
+          </div>
+
+          <div class="inventory-history-wrap">
+            <table class="inventory-history-table">
+              <thead>
+                <tr>
+                  <th>카테고리</th>
+                  <th>시즌</th>
+                  <th>품목명</th>
+                  <th>사이즈</th>
+                  <th>입고</th>
+                  <th>출고</th>
+                  <th>순변동</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryDailySummaryBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="insight-panel inventory-bottom-panel">
+          <div class="panel-top inventory-bottom-top">
+            <div>
+              <p class="panel-kicker">History</p>
+              <h2>입출고 내역</h2>
+            </div>
+          </div>
+
+          <div class="inventory-history-wrap">
+            <table class="inventory-history-table">
+              <thead>
+                <tr>
+                  <th>일자</th>
+                  <th>카테고리</th>
+                  <th>시즌</th>
+                  <th>품목명</th>
+                  <th>사이즈</th>
+                  <th>구분</th>
+                  <th>수량</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryHistoryBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="inventoryOverviewPage" class="dfy-page" data-page="inventoryOverview">
+      <section class="table-panel inventory-overview-panel">
+        <div class="panel-top inventory-overview-top">
+          <div>
+            <p class="panel-kicker">Inventory Dashboard</p>
+            <h2 id="inventoryOverviewHeadline">재고관리 대시보드</h2>
+            <p id="inventoryOverviewCopy" class="panel-copy">3페이지 재고를 시즌별로 묶어서 확인하고, 2페이지 평균판매량 기준 N주 뒤 예상재고를 함께 봅니다.</p>
+          </div>
+          <div class="inventory-overview-toolbar">
+            <div class="inventory-filter-group">
+              <span class="inventory-filter-label">카테고리</span>
+              <div id="inventoryOverviewCategoryButtons" class="category-button-row" role="tablist" aria-label="재고 대시보드 카테고리 선택"></div>
+            </div>
+            <div class="inventory-filter-group">
+              <span class="inventory-filter-label">예상재고 기준</span>
+              <div id="inventoryForecastButtons" class="category-button-row" role="tablist" aria-label="예상 재고 주차 선택"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="inventoryOverviewSections" class="inventory-overview-sections"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="inventoryEditModal" class="inventory-modal" hidden>
+    <div id="inventoryEditBackdrop" class="inventory-modal-backdrop"></div>
+    <section class="inventory-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="inventoryEditTitle">
+      <div class="inventory-modal-top">
+        <div>
+          <p class="panel-kicker">Stock Editor</p>
+          <h2 id="inventoryEditTitle">재고수정</h2>
+          <p id="inventoryEditCaption" class="panel-copy">선택한 카테고리와 시즌의 현재재고를 수정합니다.</p>
+        </div>
+        <button id="inventoryEditCloseButton" class="inventory-modal-close" type="button" aria-label="닫기">×</button>
+      </div>
+      <div class="inventory-modal-table-wrap">
+        <table class="inventory-modal-table">
+          <thead>
+            <tr>
+              <th rowspan="2">품목명</th>
+              <th class="inventory-group-header stock" colspan="2">현재재고 수정</th>
+            </tr>
+            <tr>
+              <th class="inventory-subheader stock">M</th>
+              <th class="inventory-subheader stock">L</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryEditBody"></tbody>
+        </table>
+      </div>
+      <div class="inventory-modal-actions">
+        <button id="inventoryEditCancelButton" class="button button-ghost" type="button">취소</button>
+        <button id="inventoryEditSaveButton" class="button button-primary" type="button">저장</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="dfysupabase-config.js"></script>
+  <script src="dfyscript.js"></script>
+</body>
+</html>
