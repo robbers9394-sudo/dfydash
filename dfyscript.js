@@ -2563,6 +2563,7 @@ function queueRemoteProductSave(entries) {
 }
 
 async function hydrateProductLedgerFromSupabase() {
+  const localLedgerSnapshot = normalizeProductLedger(state.productLedger);
   const { data, error } = await supabaseClient
     .from(DFY_REMOTE_PRODUCT_TABLE)
     .select("*")
@@ -2575,7 +2576,7 @@ async function hydrateProductLedgerFromSupabase() {
   }
 
   if (!data.length) {
-    const localEntries = getAllProductLedgerRemoteEntries();
+    const localEntries = getAllProductLedgerRemoteEntries(localLedgerSnapshot);
     if (localEntries.length) {
       queueRemoteProductSave(localEntries);
     }
@@ -2596,6 +2597,27 @@ async function hydrateProductLedgerFromSupabase() {
     }
     state.productLedger[monthKey][rowId][dateKey] = quantity;
   });
+
+  const missingOrDifferentLocalEntries = getAllProductLedgerRemoteEntries(localLedgerSnapshot).filter((entry) => {
+    const localQuantity = Number(localLedgerSnapshot?.[entry.monthKey]?.[entry.rowId]?.[entry.dateKey] || 0);
+    const remoteQuantity = Number(state.productLedger?.[entry.monthKey]?.[entry.rowId]?.[entry.dateKey] || 0);
+    return localQuantity !== remoteQuantity;
+  });
+
+  if (missingOrDifferentLocalEntries.length) {
+    Object.entries(localLedgerSnapshot).forEach(([monthKey, rowMap]) => {
+      ensureProductMonthData(monthKey);
+      Object.entries(rowMap || {}).forEach(([rowId, dateMap]) => {
+        if (!state.productLedger[monthKey][rowId]) {
+          state.productLedger[monthKey][rowId] = {};
+        }
+        Object.entries(dateMap || {}).forEach(([dateKey, value]) => {
+          state.productLedger[monthKey][rowId][dateKey] = Math.max(0, Number(value) || 0);
+        });
+      });
+    });
+    queueRemoteProductSave(missingOrDifferentLocalEntries);
+  }
 }
 
 async function upsertProductLedgerToSupabase(entryKeys) {
@@ -2695,8 +2717,8 @@ function parseRemoteProductEntryKey(value) {
   return { dateKey, rowId: rest.join("::") };
 }
 
-function getAllProductLedgerRemoteEntries() {
-  return Object.entries(state.productLedger || {}).flatMap(([monthKey, rowMap]) => (
+function getAllProductLedgerRemoteEntries(productLedger = state.productLedger) {
+  return Object.entries(productLedger || {}).flatMap(([monthKey, rowMap]) => (
     Object.entries(rowMap || {}).flatMap(([rowId, dateMap]) => (
       Object.keys(dateMap || {}).map((dateKey) => ({ monthKey, rowId, dateKey }))
     ))
