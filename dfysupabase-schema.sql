@@ -51,3 +51,54 @@ for all
 to anon, authenticated
 using (true)
 with check (true);
+
+create table if not exists public.dfy_product_ledger (
+  month_key text not null,
+  date_key date not null,
+  row_id text not null,
+  quantity integer not null default 0 check (quantity >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (date_key, row_id)
+);
+
+drop trigger if exists dfy_product_ledger_set_updated_at on public.dfy_product_ledger;
+create trigger dfy_product_ledger_set_updated_at
+before update on public.dfy_product_ledger
+for each row
+execute function public.dfy_set_updated_at();
+
+alter table public.dfy_product_ledger enable row level security;
+
+drop policy if exists "dfy_product_ledger_public_rw" on public.dfy_product_ledger;
+create policy "dfy_product_ledger_public_rw"
+on public.dfy_product_ledger
+for all
+to anon, authenticated
+using (true)
+with check (true);
+
+create table if not exists public.dfy_inventory_state (
+  state_key text primary key,
+  items jsonb not null default '[]'::jsonb,
+  transactions jsonb not null default '[]'::jsonb,
+  meta jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists dfy_inventory_state_set_updated_at on public.dfy_inventory_state;
+create trigger dfy_inventory_state_set_updated_at
+before update on public.dfy_inventory_state
+for each row
+execute function public.dfy_set_updated_at();
+
+alter table public.dfy_inventory_state enable row level security;
+
+drop policy if exists "dfy_inventory_state_public_rw" on public.dfy_inventory_state;
+create policy "dfy_inventory_state_public_rw"
+on public.dfy_inventory_state
+for all
+to anon, authenticated
+using (true)
+with check (true);
