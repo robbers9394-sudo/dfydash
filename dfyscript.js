@@ -3,6 +3,9 @@ const DFY_INVENTORY_STORAGE_KEY = "inventory-dashboard-v2";
 const DFY_INVENTORY_SYNC_SOURCE = "dfy-product-ledger";
 const DFY_DEFAULT_TARGET = 1042989;
 const DFY_REMOTE_TABLE = "dfy_daily_sales";
+const DFY_REMOTE_PRODUCT_TABLE = "dfy_product_ledger";
+const DFY_REMOTE_INVENTORY_TABLE = "dfy_inventory_state";
+const DFY_REMOTE_INVENTORY_KEY = "shared";
 const DFY_DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 const DFY_MONTH_LABELS = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 const DFY_PLATFORMS = ["musinsa", "ably", "kream", "official"];
@@ -637,6 +640,9 @@ let pickerYear = Number(currentMonth.slice(0, 4));
 let saveMessage = "자동 저장 준비 중";
 let remoteSaveTimer = null;
 let pendingRemoteKeys = new Set();
+let remoteProductSaveTimer = null;
+let pendingRemoteProductKeys = new Set();
+let remoteInventorySaveTimer = null;
 let skipInventoryBlurCommit = false;
 let isInventoryEditModalOpen = false;
 
@@ -805,6 +811,14 @@ function normalizeProductLedger(productLedger) {
       )
     ])
   );
+}
+
+function normalizeSharedInventoryState(inventoryState) {
+  return {
+    items: Array.isArray(inventoryState?.items) ? inventoryState.items : [],
+    transactions: Array.isArray(inventoryState?.transactions) ? inventoryState.transactions : [],
+    dfyProductSalesSync: inventoryState?.dfyProductSalesSync || null
+  };
 }
 
 function bindEvents() {
@@ -1768,22 +1782,19 @@ function loadSharedInventoryState() {
   try {
     const raw = localStorage.getItem(DFY_INVENTORY_STORAGE_KEY);
     if (!raw) {
-      return { items: [], transactions: [] };
+      return normalizeSharedInventoryState({ items: [], transactions: [] });
     }
 
-    const parsed = JSON.parse(raw);
-    return {
-      items: Array.isArray(parsed.items) ? parsed.items : [],
-      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-      ...parsed
-    };
+    return normalizeSharedInventoryState(JSON.parse(raw));
   } catch (error) {
-    return { items: [], transactions: [] };
+    return normalizeSharedInventoryState({ items: [], transactions: [] });
   }
 }
 
 function saveSharedInventoryState(inventoryState) {
-  localStorage.setItem(DFY_INVENTORY_STORAGE_KEY, JSON.stringify(inventoryState));
+  const normalizedState = normalizeSharedInventoryState(inventoryState);
+  localStorage.setItem(DFY_INVENTORY_STORAGE_KEY, JSON.stringify(normalizedState));
+  queueRemoteInventorySave(normalizedState);
 }
 
 function createInventoryItemId(season, category, name) {
@@ -2061,6 +2072,7 @@ function updateProductCellFromInput(input, shouldFormat) {
   const nextValue = parseNumericValue(input.value);
   setProductCellValue(currentMonth, rowId, date, nextValue);
   saveState(`자동 저장됨 · ${formatTime(new Date())}`);
+  queueRemoteProductSave([{ monthKey: currentMonth, rowId, dateKey: date }]);
   syncInventoryOutflows();
   if (shouldFormat) {
     input.value = nextValue ? formatNumber(nextValue) : "";
@@ -2404,10 +2416,8 @@ function slugify(value) { return String(value || "").toLowerCase().replace(/[^a-
 function escapeHtml(value) { return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 
 function syncInventoryOutflows() {
-  const raw = localStorage.getItem(DFY_INVENTORY_STORAGE_KEY);
-  if (!raw) return;
   try {
-    const inventoryState = JSON.parse(raw);
+    const inventoryState = loadSharedInventoryState();
     if (!inventoryState || !Array.isArray(inventoryState.items)) return;
     const lookup = new Map();
     inventoryState.items.forEach((item) => {
@@ -2448,7 +2458,7 @@ function syncInventoryOutflows() {
     });
     inventoryState.transactions = retainedTransactions.concat(generatedTransactions);
     inventoryState.dfyProductSalesSync = { updatedAt: new Date().toISOString(), generatedCount: generatedTransactions.length, unmapped };
-    localStorage.setItem(DFY_INVENTORY_STORAGE_KEY, JSON.stringify(inventoryState));
+    saveSharedInventoryState(inventoryState);
   } catch (error) {
     return;
   }
@@ -2483,6 +2493,15 @@ function queueRemoteSave(dateKeys) {
 
 async function hydrateFromSupabase() {
   if (!supabaseClient) return;
+  await hydrateSalesFromSupabase();
+  await hydrateProductLedgerFromSupabase();
+  await hydrateInventoryStateFromSupabase();
+  syncInventoryOutflows();
+  saveState("Supabase 데이터 동기화 완료");
+  render();
+}
+
+async function hydrateSalesFromSupabase() {
   const { data, error } = await supabaseClient.from(DFY_REMOTE_TABLE).select("*").order("sales_date", { ascending: true });
   if (error) {
     console.error("Supabase hydrate failed", error);
@@ -2502,8 +2521,6 @@ async function hydrateFromSupabase() {
       dailyTarget: record.daily_target
     }, DFY_DEFAULT_TARGET);
   });
-  saveState("Supabase 데이터 동기화 완료");
-  render();
 }
 
 async function upsertRowsToSupabase(dateKeys) {
@@ -2532,4 +2549,156 @@ async function upsertRowsToSupabase(dateKeys) {
     return;
   }
   saveIndicator.textContent = `Supabase 저장 완료 · ${formatTime(new Date())}`;
+}
+
+function queueRemoteProductSave(entries) {
+  if (!supabaseClient || !entries.length) return;
+  entries.forEach((entry) => pendingRemoteProductKeys.add(createRemoteProductEntryKey(entry.dateKey, entry.rowId)));
+  if (remoteProductSaveTimer) clearTimeout(remoteProductSaveTimer);
+  remoteProductSaveTimer = setTimeout(() => {
+    const keysToSave = Array.from(pendingRemoteProductKeys);
+    pendingRemoteProductKeys = new Set();
+    void upsertProductLedgerToSupabase(keysToSave);
+  }, 300);
+}
+
+async function hydrateProductLedgerFromSupabase() {
+  const { data, error } = await supabaseClient
+    .from(DFY_REMOTE_PRODUCT_TABLE)
+    .select("*")
+    .order("date_key", { ascending: true });
+
+  if (error) {
+    console.error("Supabase product hydrate failed", error);
+    saveIndicator.textContent = `Supabase 상품연동 실패 · ${error.message || "오류"}`;
+    return;
+  }
+
+  if (!data.length) {
+    const localEntries = getAllProductLedgerRemoteEntries();
+    if (localEntries.length) {
+      queueRemoteProductSave(localEntries);
+    }
+    return;
+  }
+
+  data.forEach((record) => {
+    const dateKey = String(record.date_key || "");
+    const monthKey = String(record.month_key || dateKey.slice(0, 7));
+    const rowId = String(record.row_id || "");
+    const quantity = Math.max(0, Number(record.quantity) || 0);
+    if (!monthKey || !dateKey || !rowId) {
+      return;
+    }
+    ensureProductMonthData(monthKey);
+    if (!state.productLedger[monthKey][rowId]) {
+      state.productLedger[monthKey][rowId] = {};
+    }
+    state.productLedger[monthKey][rowId][dateKey] = quantity;
+  });
+}
+
+async function upsertProductLedgerToSupabase(entryKeys) {
+  if (!supabaseClient || !entryKeys.length) return;
+  const payload = entryKeys.map((entryKey) => {
+    const { dateKey, rowId } = parseRemoteProductEntryKey(entryKey);
+    const monthKey = dateKey.slice(0, 7);
+    return {
+      month_key: monthKey,
+      date_key: dateKey,
+      row_id: rowId,
+      quantity: getProductCellValue(monthKey, rowId, dateKey)
+    };
+  });
+
+  const { error } = await supabaseClient
+    .from(DFY_REMOTE_PRODUCT_TABLE)
+    .upsert(payload, { onConflict: "date_key,row_id" });
+
+  if (error) {
+    console.error("Supabase product upsert failed", error, payload);
+    saveIndicator.textContent = `Supabase 상품저장 실패 · ${error.message || "오류"}`;
+    return;
+  }
+
+  saveIndicator.textContent = `Supabase 상품저장 완료 · ${formatTime(new Date())}`;
+}
+
+function queueRemoteInventorySave(inventoryState) {
+  if (!supabaseClient) return;
+  const snapshot = normalizeSharedInventoryState(inventoryState);
+  if (remoteInventorySaveTimer) clearTimeout(remoteInventorySaveTimer);
+  remoteInventorySaveTimer = setTimeout(() => {
+    void upsertInventoryStateToSupabase(snapshot);
+  }, 300);
+}
+
+async function hydrateInventoryStateFromSupabase() {
+  const { data, error } = await supabaseClient
+    .from(DFY_REMOTE_INVENTORY_TABLE)
+    .select("*")
+    .eq("state_key", DFY_REMOTE_INVENTORY_KEY)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase inventory hydrate failed", error);
+    saveIndicator.textContent = `Supabase 재고불러오기 실패 · ${error.message || "오류"}`;
+    return;
+  }
+
+  if (!data) {
+    const localInventoryState = loadSharedInventoryState();
+    if (localInventoryState.items.length || localInventoryState.transactions.length) {
+      queueRemoteInventorySave(localInventoryState);
+    }
+    return;
+  }
+
+  const inventoryState = normalizeSharedInventoryState({
+    items: data.items,
+    transactions: data.transactions,
+    dfyProductSalesSync: data.meta?.dfyProductSalesSync || null
+  });
+  localStorage.setItem(DFY_INVENTORY_STORAGE_KEY, JSON.stringify(inventoryState));
+}
+
+async function upsertInventoryStateToSupabase(inventoryState) {
+  if (!supabaseClient) return;
+  const payload = {
+    state_key: DFY_REMOTE_INVENTORY_KEY,
+    items: inventoryState.items,
+    transactions: inventoryState.transactions,
+    meta: {
+      dfyProductSalesSync: inventoryState.dfyProductSalesSync || null
+    }
+  };
+
+  const { error } = await supabaseClient
+    .from(DFY_REMOTE_INVENTORY_TABLE)
+    .upsert(payload, { onConflict: "state_key" });
+
+  if (error) {
+    console.error("Supabase inventory upsert failed", error, payload);
+    saveIndicator.textContent = `Supabase 재고저장 실패 · ${error.message || "오류"}`;
+    return;
+  }
+
+  saveIndicator.textContent = `Supabase 재고저장 완료 · ${formatTime(new Date())}`;
+}
+
+function createRemoteProductEntryKey(dateKey, rowId) {
+  return `${dateKey}::${rowId}`;
+}
+
+function parseRemoteProductEntryKey(value) {
+  const [dateKey, ...rest] = String(value || "").split("::");
+  return { dateKey, rowId: rest.join("::") };
+}
+
+function getAllProductLedgerRemoteEntries() {
+  return Object.entries(state.productLedger || {}).flatMap(([monthKey, rowMap]) => (
+    Object.entries(rowMap || {}).flatMap(([rowId, dateMap]) => (
+      Object.keys(dateMap || {}).map((dateKey) => ({ monthKey, rowId, dateKey }))
+    ))
+  ));
 }
