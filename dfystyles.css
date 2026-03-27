@@ -1601,6 +1601,29 @@ table.inventory-input-table:not(.inventory-overview-table) tbody tr > *:nth-chil
   font-weight: 700;
 }
 
+.product-save-button {
+  min-width: 78px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 12px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 140ms ease, transform 140ms ease, background-color 140ms ease;
+}
+
+.product-save-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.product-save-button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
 .product-ledger-wrap {
   position: relative;
   isolation: isolate;
